@@ -92,6 +92,8 @@ Process* createProcesses(int *numProcesses, Queues *queues) {
 
     *numProcesses = 1 + (rand() % MAX_PROCESSES); //defines how many processes will be created
 
+    printf("\n\n" ANSI_BOLD ANSI_BG_CYAN "************************* CREATED PROCESSES **************************" ANSI_RESET "\n");
+
     for (int i = 0; i < *numProcesses; i++) {
         arrivalTime = i == 0 ? 0 : rand() % MAX_PROCESS_TIME;
         serviceTime = 1 + rand() % MAX_PROCESS_TIME;
@@ -140,12 +142,12 @@ Process* createProcesses(int *numProcesses, Queues *queues) {
         ptrProcess++;
 
         //print created process info
-        printf(ANSI_BOLD "\n\n========================== Process %d created: ==========================\n\n" ANSI_RESET, i+1);
-        printf(ANSI_BOLD "arrival time: " ANSI_RESET "%d\n", arrivalTime);
-        printf(ANSI_BOLD "service time: " ANSI_RESET "%d\n", serviceTime);
-        printf(ANSI_BOLD "quantity of I/Os: " ANSI_RESET "%d\n", IOCount);
+        printf(ANSI_BOLD "\n========================= Process %d created: =========================\n\n" ANSI_RESET, i+1);
+        printf(ANSI_BOLD "Arrival time: " ANSI_RESET "%d\n", arrivalTime);
+        printf(ANSI_BOLD "Service time: " ANSI_RESET "%d\n", serviceTime);
+        printf(ANSI_BOLD "Quantity of I/Os: " ANSI_RESET "%d\n\n", IOCount);
         for (int j = 0; j < IOCount; j++) {
-            printf(">>> type: %s, start time: %d\n", ios[j].name, ios[j].startTime);
+            printf(">>> type: %s, start time: %d\n\n", ios[j].name, ios[j].startTime);
         }
     }
 
@@ -512,14 +514,14 @@ void printQueues(Queues *queues) {
 */
 void printCPU(Scheduler *scheduler){
     //print qtd of terminated processes / all processes, elapsed_time / service_time and elapsed_quantum / quantum
-    printf("\nCPU: ");
-    printf("terminated processes: %d/%d, ", scheduler->terminatedProcesses, scheduler->numProcesses);
+    printf("\n- - - - - - CPU - - - - - -\n");
+    printf("Terminated processes: %d/%d\n", scheduler->terminatedProcesses, scheduler->numProcesses);
     if (scheduler->currentCPUProcess != NULL) {
-        printf("processed time: %d/%d, ", scheduler->currentCPUProcess->processedTime, scheduler->currentCPUProcess->serviceTime);
+        printf("Processed time: %d/%d\n", scheduler->currentCPUProcess->processedTime, scheduler->currentCPUProcess->serviceTime);
     } else {
-        printf("processed time: 0/0, ");
+        printf("Processed time: 0/0\n");
     }
-    printf("elapsed quantum: %d/%d\n", scheduler->elapsedQuantum, scheduler->quantum);
+    printf("Elapsed quantum: %d/%d\n\n", scheduler->elapsedQuantum, scheduler->quantum);
 }
 
 /*
@@ -527,8 +529,9 @@ void printCPU(Scheduler *scheduler){
 */
 void simulate(Scheduler *scheduler) {
     int currentTime = 0;
+    printf("\n\n" ANSI_BOLD ANSI_BG_CYAN "***************************** SCHEDULER *****************************" ANSI_RESET "\n");
     while (scheduler->terminatedProcesses < scheduler->numProcesses) {
-        printf("\n\n========================== " ANSI_BOLD "Current time: %d" ANSI_RESET " ==========================\n", currentTime);
+        printf(ANSI_BOLD "\n========================== Current time: %d ==========================\n" ANSI_RESET, currentTime);
         
         enterNewProcess(scheduler->processes, scheduler->numProcesses, scheduler->queues, currentTime);
         advanceCPUProcess(&(scheduler->currentCPUProcess), scheduler->queues, &(scheduler->terminatedProcesses), scheduler->quantum, &(scheduler->elapsedQuantum));
