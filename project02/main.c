@@ -9,9 +9,9 @@
 #define MAX_PROCESSES 4 // maximum number of processes
 #define MAX_PROCESS_TIME 15 // maximum time a process can take to finish
 #define MAX_IO 3 // maximum number of IOs a process can have
-#define QUANTUM 5
+#define QUANTUM 5 // quantum for the round robin algorithm
 
-enum PROCESS_IO { DISK = 3, TAPE = 5, PRINTER = 8 };
+enum PROCESS_IO { DISK = 3, TAPE = 5, PRINTER = 8 }; // IO duration for each device
 
 enum PROCESS_STATE { READY, RUNNING, BLOCKED, FINISHED };
 
@@ -62,7 +62,7 @@ typedef struct {
     Queues *queues;
     Process *processes;
 
-    int TerminatedProcesses;
+    int terminatedProcesses;
     int numProcesses;
 
     Process *currentCPUProcess;
@@ -232,7 +232,7 @@ void initScheduler(Scheduler *scheduler) {
 
     // creates the processes
     scheduler->processes = createProcesses(&scheduler->numProcesses, scheduler->queues);
-    scheduler->TerminatedProcesses = 0;
+    scheduler->terminatedProcesses = 0;
 
     // creates the queues
     scheduler->queues = (Queues *) malloc(sizeof(Queues));
@@ -254,17 +254,95 @@ void initScheduler(Scheduler *scheduler) {
 }
 
 /*
+    Process arrival event
+*/
+void enterNewProcess(Process *processes, int numProcesses, Queues *queues, int currentTime) {
+    for (int i = 0; i < numProcesses; i++) {
+        if (processes[i].arrivalTime == currentTime) {
+            printf("+ Process %d arrived\n", processes[i].pid);
+            // add the process to the high priority queue
+            QueueElement *newElement = (QueueElement *) malloc(sizeof(QueueElement));
+            if (newElement == NULL) {
+                printf("Error creating new queue element\n");
+                exit(1);
+            }
+            newElement->process = &processes[i];
+            newElement->next = NULL;
+
+           
+            if (queues->highPriority->first == NULL) {
+                queues->highPriority->first = newElement;
+                queues->highPriority->last = newElement;
+            } else {
+                queues->highPriority->last->next = newElement;
+                queues->highPriority->last = newElement;
+            }
+        }
+    }
+}
+
+/*
+    End of current CPU process event
+*/
+void terminateProcess(Process** currentCPUProcess, int *terminatedProcesses) {
+    if ((*currentCPUProcess)->processedTime == (*currentCPUProcess)->serviceTime) {
+        printf("- Process %d terminated\n", (*currentCPUProcess)->pid);
+        (*terminatedProcesses)++;
+        *currentCPUProcess = NULL;
+        return;
+    }
+}
+
+/*
+    Advance the current CPU process event
+*/
+void advanceCPUProcess(Process** currentCPUProcess, Queue *highPriority, Queue *lowPriority, int *terminatedProcesses) {
+    if (*currentCPUProcess == NULL) {
+        if (highPriority->first != NULL) {
+            *currentCPUProcess = highPriority->first->process;
+            highPriority->first = highPriority->first->next;
+        } else if (lowPriority->first != NULL) {
+            *currentCPUProcess = lowPriority->first->process;
+            lowPriority->first = lowPriority->first->next;
+        } else {
+            printf("No process to run\n");
+            return;
+        }
+    }
+
+    printf("Process %d is running\n", (*currentCPUProcess)->pid);
+    (*currentCPUProcess)->processedTime++;
+    terminateProcess(currentCPUProcess, terminatedProcesses);
+}
+
+/*
+    simulates the scheduler
+*/
+void simulate(Scheduler *scheduler) {
+    int currentTime = 0;
+    while (scheduler->terminatedProcesses < scheduler->numProcesses) {
+        printf("\n=====Current time: %d=====\n", currentTime);
+        
+        enterNewProcess(scheduler->processes, scheduler->numProcesses, scheduler->queues, currentTime);
+        advanceCPUProcess(&(scheduler->currentCPUProcess), scheduler->queues->highPriority, scheduler->queues->lowPriority, &(scheduler->terminatedProcesses));
+
+        currentTime++;
+    }
+}
+
+/*
     main function to execute the simulator
 */
 int main () {
     Scheduler *scheduler = (Scheduler *) malloc(sizeof(Scheduler));
     initScheduler(scheduler);
+    simulate(scheduler);
 
     // print each generated process pid and its IOs
     printf("Generated processes:\n");
     for (int i = 0; i < scheduler->numProcesses; i++) {
-        // print process PID and IOnumber
-        printf("Process %d: %d\n", scheduler->processes[i].pid, scheduler->processes[i].numIOs);
+        // print process PID, arrivalTime, ServiceTime and IOnumber
+        printf("PID: %d, arrivalTime: %d, serviceTime: %d, IOnumber: %d\n", scheduler->processes[i].pid, scheduler->processes[i].arrivalTime, scheduler->processes[i].serviceTime, scheduler->processes[i].numIOs);
         for (int j = 0; j < scheduler->processes[i].numIOs; j++) {
             // print IOs for each process name, duration, and start time
             printf("IO %d: %s %d %d\n", j+1, scheduler->processes[i].ios[j].name, scheduler->processes[i].ios[j].duration, scheduler->processes[i].ios[j].startTime);
