@@ -2,73 +2,8 @@
 #include <stdlib.h>
 #include <time.h>
 #include <string.h>
-
-#define TRUE 1
-#define FALSE 0
-
-#define MAX_PROCESSES 4 // maximum number of processes
-#define MAX_PROCESS_TIME 15 // maximum time a process can take to finish
-#define MAX_IO 3 // maximum number of IOs a process can have
-#define QUANTUM 5 // quantum for the round robin algorithm
-
-enum PROCESS_IO { DISK = 3, TAPE = 5, PRINTER = 8 }; // IO duration for each device
-
-enum PROCESS_STATE { READY, RUNNING, BLOCKED, FINISHED };
-
-enum PROCESS_PRIORITY { HIGH, LOW };
-
-typedef struct IO {
-    char name[8];
-    int startTime;
-    int duration;
-} IO;
-
-// estruturas que precisaremos
-typedef struct {
-    int arrivalTime;
-    int serviceTime;
-    int processedTime;
-
-    int pid;
-    int ppid;
-    int state;
-    int priority;
-
-    IO *ios;
-    int currentIO;
-    int numIOs;
-    int elapsedIOTime;
-} Process;
-
-typedef struct QueueElement {
-    Process *process;
-    struct QueueElement *next;
-} QueueElement;
-
-typedef struct {
-    QueueElement *first;
-    QueueElement *last;
-} Queue;
-
-typedef struct {
-    Queue *highPriority;
-    Queue *lowPriority;
-    Queue *disk;
-    Queue *tape;
-    Queue *printer;
-} Queues;
-
-typedef struct {
-    Queues *queues;
-    Process *processes;
-
-    int terminatedProcesses;
-    int numProcesses;
-
-    Process *currentCPUProcess;
-    int quantum;
-    int elapsedQuantum;
-} Scheduler;
+#include "headers/ansi_colors.h"
+#include "headers/structures.h"
 
 /*
     creates a new process with the given parameters
@@ -203,6 +138,13 @@ Process* createProcesses(int *numProcesses, Queues *queues) {
 
         *ptrProcess = newProcess(i+1, arrivalTime, serviceTime, IOCount, ios);
         ptrProcess++;
+
+        //print created process info
+        printf("\n\n==========================Process %d created: ==========================\n\n", i+1);
+        printf("arrival time => %d, service time => %d, quantity of I/Os => %d\n", arrivalTime, serviceTime, IOCount);
+        for (int j = 0; j < IOCount; j++) {
+            printf(">>> I/O: type => %s, start time => %d\n", ios[j].name, ios[j].startTime);
+        }
     }
 
     sortProcesses(processes, *numProcesses);
@@ -300,7 +242,7 @@ void terminateProcess(Process** currentCPUProcess, int *terminatedProcesses, int
 */
 void preemptionProcess(int *elapsedQuantum, int quantum, Process** currentCPUProcess, Queue *highPriority, Queue *lowPriority) {
     if (*elapsedQuantum == quantum) {
-        printf("Process %d preempted\n", (*currentCPUProcess)->pid);
+        printf("+ Process %d preempted\n", (*currentCPUProcess)->pid);
         (*currentCPUProcess)->state = READY;
         (*currentCPUProcess)->priority = LOW;
 
@@ -336,7 +278,7 @@ void callIO(Process** currentCPUProcess, Queue* disk, Queue* tape, Queue* printe
 
     IO io = (*currentCPUProcess)->ios[(*currentCPUProcess)->currentIO];
     if ((*currentCPUProcess)->processedTime == io.startTime) {
-        printf("Process %d called %s\n", (*currentCPUProcess)->pid, io.name);
+        printf("+ Process %d called %s\n", (*currentCPUProcess)->pid, io.name);
 
         QueueElement *newElement = (QueueElement *) malloc(sizeof(QueueElement));
         if (newElement == NULL) {
@@ -398,14 +340,14 @@ void advanceCPUProcess(Process** currentCPUProcess, Queues *queues, int *termina
             *currentCPUProcess = queues->lowPriority->first->process;
             queues->lowPriority->first = queues->lowPriority->first->next;
         } else {
-            printf("No process to run\n");
+            printf("* No process to run\n");
             return;
         }
 
         (*currentCPUProcess)->state = RUNNING;
     }
 
-    printf("Process %d is running\n", (*currentCPUProcess)->pid);
+    printf("* Process %d is running\n", (*currentCPUProcess)->pid);
     (*currentCPUProcess)->processedTime++;
     (*elapsedQuantum)++;
 
@@ -423,7 +365,7 @@ void advanceIOProcess(Queues *queues) {
     if (queues->disk->first != NULL) {
         queues->disk->first->process->elapsedIOTime++;
         if (queues->disk->first->process->elapsedIOTime == DISK) {
-            printf("Process %d finished disk IO\n", queues->disk->first->process->pid);
+            printf("+ Process %d finished disk IO\n", queues->disk->first->process->pid);
             queues->disk->first->process->currentIO++;
             queues->disk->first->process->state = READY;
             queues->disk->first->process->priority = LOW;
@@ -453,7 +395,7 @@ void advanceIOProcess(Queues *queues) {
     if (queues->tape->first != NULL) {
         queues->tape->first->process->elapsedIOTime++;
         if (queues->tape->first->process->elapsedIOTime == TAPE) {
-            printf("Process %d finished tape IO\n", queues->tape->first->process->pid);
+            printf("+ Process %d finished tape IO\n", queues->tape->first->process->pid);
             queues->tape->first->process->currentIO++;
             queues->tape->first->process->state = READY;
             queues->tape->first->process->priority = HIGH;
@@ -483,7 +425,7 @@ void advanceIOProcess(Queues *queues) {
     if (queues->printer->first != NULL) {
         queues->printer->first->process->elapsedIOTime++;
         if (queues->printer->first->process->elapsedIOTime == PRINTER) {
-            printf("Process %d finished printer IO\n", queues->printer->first->process->pid);
+            printf("+ Process %d finished printer IO\n", queues->printer->first->process->pid);
             queues->printer->first->process->currentIO++;
             queues->printer->first->process->state = READY;
             queues->printer->first->process->priority = HIGH;
@@ -527,6 +469,58 @@ void freeStructures(Scheduler *scheduler) {
 }
 
 /*
+    print all queues and their processes
+*/
+void printQueues(Queues *queues) {
+    printf("\nHigh priority queue: ");
+    QueueElement *ptr = queues->highPriority->first;
+    while (ptr != NULL) {
+        printf("%d ", ptr->process->pid);
+        ptr = ptr->next;
+    }
+    printf("\nLow priority queue: ");
+    ptr = queues->lowPriority->first;
+    while (ptr != NULL) {
+        printf("%d ", ptr->process->pid);
+        ptr = ptr->next;
+    }
+    printf("\nDisk queue: ");
+    ptr = queues->disk->first;
+    while (ptr != NULL) {
+        printf("%d ", ptr->process->pid);
+        ptr = ptr->next;
+    }
+    printf("\nTape queue: ");
+    ptr = queues->tape->first;
+    while (ptr != NULL) {
+        printf("%d ", ptr->process->pid);
+        ptr = ptr->next;
+    }
+    printf("\nPrinter queue: ");
+    ptr = queues->printer->first;
+    while (ptr != NULL) {
+        printf("%d ", ptr->process->pid);
+        ptr = ptr->next;
+    }
+    printf("\n");
+}
+
+/*
+    print information about the current state of the CPU
+*/
+void printCPU(Scheduler *scheduler){
+    //print qtd of terminated processes / all processes, elapsed_time / service_time and elapsed_quantum / quantum
+    printf("\nCPU: ");
+    printf("terminated processes: %d/%d, ", scheduler->terminatedProcesses, scheduler->numProcesses);
+    if (scheduler->currentCPUProcess != NULL) {
+        printf("processed time: %d/%d, ", scheduler->currentCPUProcess->processedTime, scheduler->currentCPUProcess->serviceTime);
+    } else {
+        printf("processed time: 0/0, ");
+    }
+    printf("elapsed quantum: %d/%d\n", scheduler->elapsedQuantum, scheduler->quantum);
+}
+
+/*
     simulates the scheduler
 */
 void simulate(Scheduler *scheduler) {
@@ -537,38 +531,8 @@ void simulate(Scheduler *scheduler) {
         enterNewProcess(scheduler->processes, scheduler->numProcesses, scheduler->queues, currentTime);
         advanceCPUProcess(&(scheduler->currentCPUProcess), scheduler->queues, &(scheduler->terminatedProcesses), scheduler->quantum, &(scheduler->elapsedQuantum));
         advanceIOProcess(scheduler->queues);
-        // print head of all queues
-        printf("High priority queue: ");
-        QueueElement *ptr = scheduler->queues->highPriority->first;
-        while (ptr != NULL) {
-            printf("%d ", ptr->process->pid);
-            ptr = ptr->next;
-        }
-        printf("\nLow priority queue: ");
-        ptr = scheduler->queues->lowPriority->first;
-        while (ptr != NULL) {
-            printf("%d ", ptr->process->pid);
-            ptr = ptr->next;
-        }
-        printf("\nDisk queue: ");
-        ptr = scheduler->queues->disk->first;
-        while (ptr != NULL) {
-            printf("%d ", ptr->process->pid);
-            ptr = ptr->next;
-        }
-        printf("\nTape queue: ");
-        ptr = scheduler->queues->tape->first;
-        while (ptr != NULL) {
-            printf("%d ", ptr->process->pid);
-            ptr = ptr->next;
-        }
-        printf("\nPrinter queue: ");
-        ptr = scheduler->queues->printer->first;
-        while (ptr != NULL) {
-            printf("%d ", ptr->process->pid);
-            ptr = ptr->next;
-        }
-        printf("\n");
+        printQueues(scheduler->queues);
+        printCPU(scheduler);
 
         currentTime++;
     }
@@ -581,18 +545,6 @@ int main () {
     Scheduler *scheduler = (Scheduler *) malloc(sizeof(Scheduler));
     initScheduler(scheduler);
     simulate(scheduler);
-
-    // print each generated process pid and its IOs
-    printf("Generated processes:\n");
-    for (int i = 0; i < scheduler->numProcesses; i++) {
-        // print process PID, arrivalTime, ServiceTime and IOnumber
-        printf("PID: %d, arrivalTime: %d, serviceTime: %d, IOnumber: %d\n", scheduler->processes[i].pid, scheduler->processes[i].arrivalTime, scheduler->processes[i].serviceTime, scheduler->processes[i].numIOs);
-        for (int j = 0; j < scheduler->processes[i].numIOs; j++) {
-            // print IOs for each process name, duration, and start time
-            printf("IO %d: %s %d %d\n", j+1, scheduler->processes[i].ios[j].name, scheduler->processes[i].ios[j].duration, scheduler->processes[i].ios[j].startTime);
-        }
-    }
-    
     freeStructures(scheduler);
     return 0;
 }
