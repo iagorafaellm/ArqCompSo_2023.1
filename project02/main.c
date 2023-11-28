@@ -284,9 +284,11 @@ void enterNewProcess(Process *processes, int numProcesses, Queues *queues, int c
 /*
     End of current CPU process event
 */
-void terminateProcess(Process** currentCPUProcess, int *terminatedProcesses) {
+void terminateProcess(Process** currentCPUProcess, int *terminatedProcesses, int *elapsedQuantum) {
     if ((*currentCPUProcess)->processedTime == (*currentCPUProcess)->serviceTime) {
         printf("- Process %d terminated\n", (*currentCPUProcess)->pid);
+        (*currentCPUProcess)->state = FINISHED;
+        *elapsedQuantum = 0;
         (*terminatedProcesses)++;
         *currentCPUProcess = NULL;
         return;
@@ -294,9 +296,40 @@ void terminateProcess(Process** currentCPUProcess, int *terminatedProcesses) {
 }
 
 /*
+    preemption of process event
+*/
+void preemptionProcess(int *elapsedQuantum, int quantum, Process** currentCPUProcess, Queue *highPriority, Queue *lowPriority) {
+    if (*elapsedQuantum == quantum) {
+        printf("Process %d preempted\n", (*currentCPUProcess)->pid);
+        (*currentCPUProcess)->state = READY;
+        (*currentCPUProcess)->priority = LOW;
+
+        QueueElement *newElement = (QueueElement *) malloc(sizeof(QueueElement));
+        if (newElement == NULL) {
+            printf("Error creating new queue element\n");
+            exit(1);
+        }
+        newElement->process = *currentCPUProcess;
+        newElement->next = NULL;
+
+        if (lowPriority->first == NULL) {
+            lowPriority->first = newElement;
+            lowPriority->last = newElement;
+        } else {
+            lowPriority->last->next = newElement;
+            lowPriority->last = newElement;
+        }
+
+        *currentCPUProcess = NULL;
+        *elapsedQuantum = 0;
+    }
+
+}
+
+/*
     Advance the current CPU process event
 */
-void advanceCPUProcess(Process** currentCPUProcess, Queue *highPriority, Queue *lowPriority, int *terminatedProcesses) {
+void advanceCPUProcess(Process** currentCPUProcess, Queue *highPriority, Queue *lowPriority, int *terminatedProcesses, int quantum, int *elapsedQuantum) {
     if (*currentCPUProcess == NULL) {
         if (highPriority->first != NULL) {
             *currentCPUProcess = highPriority->first->process;
@@ -308,11 +341,19 @@ void advanceCPUProcess(Process** currentCPUProcess, Queue *highPriority, Queue *
             printf("No process to run\n");
             return;
         }
+
+        (*currentCPUProcess)->state = RUNNING;
     }
 
     printf("Process %d is running\n", (*currentCPUProcess)->pid);
     (*currentCPUProcess)->processedTime++;
-    terminateProcess(currentCPUProcess, terminatedProcesses);
+    (*elapsedQuantum)++;
+
+    terminateProcess(currentCPUProcess, terminatedProcesses, elapsedQuantum);
+
+    if (*currentCPUProcess != NULL) {
+        preemptionProcess(elapsedQuantum, quantum, currentCPUProcess, highPriority, lowPriority);
+    }
 }
 
 /*
@@ -324,7 +365,18 @@ void simulate(Scheduler *scheduler) {
         printf("\n=====Current time: %d=====\n", currentTime);
         
         enterNewProcess(scheduler->processes, scheduler->numProcesses, scheduler->queues, currentTime);
-        advanceCPUProcess(&(scheduler->currentCPUProcess), scheduler->queues->highPriority, scheduler->queues->lowPriority, &(scheduler->terminatedProcesses));
+        advanceCPUProcess(&(scheduler->currentCPUProcess), scheduler->queues->highPriority, scheduler->queues->lowPriority, &(scheduler->terminatedProcesses), scheduler->quantum, &(scheduler->elapsedQuantum));
+        //print the head of high and low priority queues
+        if (scheduler->queues->highPriority->first != NULL) {
+            printf("High priority queue: %d\n", scheduler->queues->highPriority->first->process->pid);
+        } else {
+            printf("High priority queue: empty\n");
+        }
+        if (scheduler->queues->lowPriority->first != NULL) {
+            printf("Low priority queue: %d\n", scheduler->queues->lowPriority->first->process->pid);
+        } else {
+            printf("Low priority queue: empty\n");
+        }
 
         currentTime++;
     }
