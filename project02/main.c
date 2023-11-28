@@ -511,6 +511,22 @@ void advanceIOProcess(Queues *queues) {
 }
 
 /*
+    free all the allocated memory
+*/
+void freeStructures(Scheduler *scheduler) {
+    for (int i = 0; i < scheduler->numProcesses; i++) {
+        free(scheduler->processes[i].ios);
+    }
+    free(scheduler->processes);
+    free(scheduler->queues->highPriority);
+    free(scheduler->queues->lowPriority);
+    free(scheduler->queues->disk);
+    free(scheduler->queues->tape);
+    free(scheduler->queues->printer);
+    free(scheduler->queues);
+}
+
+/*
     simulates the scheduler
 */
 void simulate(Scheduler *scheduler) {
@@ -576,5 +592,7 @@ int main () {
             printf("IO %d: %s %d %d\n", j+1, scheduler->processes[i].ios[j].name, scheduler->processes[i].ios[j].duration, scheduler->processes[i].ios[j].startTime);
         }
     }
+    
+    freeStructures(scheduler);
     return 0;
 }
