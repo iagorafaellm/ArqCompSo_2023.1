@@ -140,10 +140,12 @@ Process* createProcesses(int *numProcesses, Queues *queues) {
         ptrProcess++;
 
         //print created process info
-        printf("\n\n==========================Process %d created: ==========================\n\n", i+1);
-        printf("arrival time => %d, service time => %d, quantity of I/Os => %d\n", arrivalTime, serviceTime, IOCount);
+        printf(ANSI_BOLD "\n\n========================== Process %d created: ==========================\n\n" ANSI_RESET, i+1);
+        printf(ANSI_BOLD "arrival time: " ANSI_RESET "%d\n", arrivalTime);
+        printf(ANSI_BOLD "service time: " ANSI_RESET "%d\n", serviceTime);
+        printf(ANSI_BOLD "quantity of I/Os: " ANSI_RESET "%d\n", IOCount);
         for (int j = 0; j < IOCount; j++) {
-            printf(">>> I/O: type => %s, start time => %d\n", ios[j].name, ios[j].startTime);
+            printf(">>> type: %s, start time: %d\n", ios[j].name, ios[j].startTime);
         }
     }
 
@@ -201,7 +203,7 @@ void initScheduler(Scheduler *scheduler) {
 void enterNewProcess(Process *processes, int numProcesses, Queues *queues, int currentTime) {
     for (int i = 0; i < numProcesses; i++) {
         if (processes[i].arrivalTime == currentTime) {
-            printf("+ Process %d arrived\n", processes[i].pid);
+            printf(ANSI_GREEN "+" ANSI_RESET " Process %d arrived\n", processes[i].pid);
             // add the process to the high priority queue
             QueueElement *newElement = (QueueElement *) malloc(sizeof(QueueElement));
             if (newElement == NULL) {
@@ -228,7 +230,7 @@ void enterNewProcess(Process *processes, int numProcesses, Queues *queues, int c
 */
 void terminateProcess(Process** currentCPUProcess, int *terminatedProcesses, int *elapsedQuantum) {
     if ((*currentCPUProcess)->processedTime == (*currentCPUProcess)->serviceTime) {
-        printf("- Process %d terminated\n", (*currentCPUProcess)->pid);
+        printf(ANSI_RED "-" ANSI_RESET " Process %d terminated\n", (*currentCPUProcess)->pid);
         (*currentCPUProcess)->state = FINISHED;
         *elapsedQuantum = 0;
         (*terminatedProcesses)++;
@@ -242,7 +244,7 @@ void terminateProcess(Process** currentCPUProcess, int *terminatedProcesses, int
 */
 void preemptionProcess(int *elapsedQuantum, int quantum, Process** currentCPUProcess, Queue *highPriority, Queue *lowPriority) {
     if (*elapsedQuantum == quantum) {
-        printf("+ Process %d preempted\n", (*currentCPUProcess)->pid);
+        printf(ANSI_GREEN "+" ANSI_RESET " Process %d preempted\n", (*currentCPUProcess)->pid);
         (*currentCPUProcess)->state = READY;
         (*currentCPUProcess)->priority = LOW;
 
@@ -278,7 +280,7 @@ void callIO(Process** currentCPUProcess, Queue* disk, Queue* tape, Queue* printe
 
     IO io = (*currentCPUProcess)->ios[(*currentCPUProcess)->currentIO];
     if ((*currentCPUProcess)->processedTime == io.startTime) {
-        printf("+ Process %d called %s\n", (*currentCPUProcess)->pid, io.name);
+        printf(ANSI_GREEN "+" ANSI_RESET " Process %d called %s\n", (*currentCPUProcess)->pid, io.name);
 
         QueueElement *newElement = (QueueElement *) malloc(sizeof(QueueElement));
         if (newElement == NULL) {
@@ -340,14 +342,14 @@ void advanceCPUProcess(Process** currentCPUProcess, Queues *queues, int *termina
             *currentCPUProcess = queues->lowPriority->first->process;
             queues->lowPriority->first = queues->lowPriority->first->next;
         } else {
-            printf("* No process to run\n");
+            printf(ANSI_YELLOW "*" ANSI_RESET " No process to run\n");
             return;
         }
 
         (*currentCPUProcess)->state = RUNNING;
     }
 
-    printf("* Process %d is running\n", (*currentCPUProcess)->pid);
+    printf(ANSI_YELLOW "*" ANSI_RESET " Process %d is running\n", (*currentCPUProcess)->pid);
     (*currentCPUProcess)->processedTime++;
     (*elapsedQuantum)++;
 
@@ -365,7 +367,7 @@ void advanceIOProcess(Queues *queues) {
     if (queues->disk->first != NULL) {
         queues->disk->first->process->elapsedIOTime++;
         if (queues->disk->first->process->elapsedIOTime == DISK) {
-            printf("+ Process %d finished disk IO\n", queues->disk->first->process->pid);
+            printf(ANSI_GREEN "+" ANSI_RESET " Process %d finished disk IO\n", queues->disk->first->process->pid);
             queues->disk->first->process->currentIO++;
             queues->disk->first->process->state = READY;
             queues->disk->first->process->priority = LOW;
@@ -395,7 +397,7 @@ void advanceIOProcess(Queues *queues) {
     if (queues->tape->first != NULL) {
         queues->tape->first->process->elapsedIOTime++;
         if (queues->tape->first->process->elapsedIOTime == TAPE) {
-            printf("+ Process %d finished tape IO\n", queues->tape->first->process->pid);
+            printf(ANSI_GREEN "+" ANSI_RESET " Process %d finished tape IO\n", queues->tape->first->process->pid);
             queues->tape->first->process->currentIO++;
             queues->tape->first->process->state = READY;
             queues->tape->first->process->priority = HIGH;
@@ -425,7 +427,7 @@ void advanceIOProcess(Queues *queues) {
     if (queues->printer->first != NULL) {
         queues->printer->first->process->elapsedIOTime++;
         if (queues->printer->first->process->elapsedIOTime == PRINTER) {
-            printf("+ Process %d finished printer IO\n", queues->printer->first->process->pid);
+            printf(ANSI_GREEN "+" ANSI_RESET " Process %d finished printer IO\n", queues->printer->first->process->pid);
             queues->printer->first->process->currentIO++;
             queues->printer->first->process->state = READY;
             queues->printer->first->process->priority = HIGH;
@@ -526,7 +528,7 @@ void printCPU(Scheduler *scheduler){
 void simulate(Scheduler *scheduler) {
     int currentTime = 0;
     while (scheduler->terminatedProcesses < scheduler->numProcesses) {
-        printf("\n=====Current time: %d=====\n", currentTime);
+        printf("\n\n========================== " ANSI_BOLD "Current time: %d" ANSI_RESET " ==========================\n", currentTime);
         
         enterNewProcess(scheduler->processes, scheduler->numProcesses, scheduler->queues, currentTime);
         advanceCPUProcess(&(scheduler->currentCPUProcess), scheduler->queues, &(scheduler->terminatedProcesses), scheduler->quantum, &(scheduler->elapsedQuantum));
