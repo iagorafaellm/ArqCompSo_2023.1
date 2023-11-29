@@ -143,11 +143,11 @@ Process* createProcesses(int *numProcesses, Queues *queues) {
 
         //print created process info
         printf(ANSI_BOLD "\n========================= Process %d created: =========================\n\n" ANSI_RESET, i+1);
-        printf(ANSI_BOLD "Arrival time: " ANSI_RESET "%d\n", arrivalTime);
-        printf(ANSI_BOLD "Service time: " ANSI_RESET "%d\n", serviceTime);
-        printf(ANSI_BOLD "Quantity of I/Os: " ANSI_RESET "%d\n\n", IOCount);
+        printf(ANSI_BOLD "> Arrival time: " ANSI_RESET "%d\n", arrivalTime);
+        printf(ANSI_BOLD "> Service time: " ANSI_RESET "%d\n", serviceTime);
+        printf(ANSI_BOLD "> Quantity of I/Os: " ANSI_RESET "%d\n", IOCount);
         for (int j = 0; j < IOCount; j++) {
-            printf(">>> type: %s, start time: %d\n\n", ios[j].name, ios[j].startTime);
+            printf("   > type: %s, start time: %d\n", ios[j].name, ios[j].startTime);
         }
     }
 
